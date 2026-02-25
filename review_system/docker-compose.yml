@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  review-system:
+    build: .
+    container_name: clerk-ai-review-system
+    volumes:
+      - ..\vault:/app/vault:rw
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - MAX_REMINDERS=3
+      - TZ=Europe/Warsaw
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

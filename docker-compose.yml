@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  ingestion:
+    build:
+      context: ./ingestion
+      dockerfile: Dockerfile
+    image: clerk-ai-ingestion:latest
+    container_name: clerk-ai-ingestion
+    env_file:
+      - ingestion/.env
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./vault/00_inbox:/app/data/00_inbox
+    restart: unless-stopped
+    networks:
+      - clerk-ai-network
+
+  brain:
+    build:
+      context: ./brain
+      dockerfile: Dockerfile
+    image: clerk-ai-brain:latest
+    container_name: clerk-ai-brain
+    env_file:
+      - brain/.env
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./vault:/app/data/vault
+    restart: unless-stopped
+    networks:
+      - clerk-ai-network
+  
+  gcal-sync:
+    build:
+      context: ./gcal-sync
+      dockerfile: Dockerfile
+    image: clerk-ai-gcal-sync:latest
+    container_name: clerk-ai-gcal-sync
+    env_file:
+      - gcal-sync/.env
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - PYTHONUNBUFFERED=1
+      - TZ=Europe/Warsaw
+    volumes:
+      - ../vault:/vault:rw
+    restart: unless-stopped
+    networks:
+      - clerk-ai-network
+
+
+volumes:
+  vault:
+    driver: local
+
+networks:
+  clerk-ai-network:
+    driver: bridge

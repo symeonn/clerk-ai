@@ -1,0 +1,15 @@
+# Configuration only - no secrets
+paths:
+  vault: ./data/vault
+  system: ./vault/_system
+  test_output: ./_test_output
+
+flags:
+  test_mode: false
+
+cron:
+  schedule: "0 0 * * *"
+
+limits:
+  max_projects: 100
+  max_notes: 1000

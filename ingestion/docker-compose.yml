@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  slack-ingestion:
+    build: .
+    container_name: clerk-slack-ingestion
+    restart: unless-stopped
+    
+    # Load environment variables from .env file
+    env_file:
+      - .env
+
+    environment:
+      # Config path
+      - CONFIG_PATH=/app/config.yaml
+      # Python unbuffered output for real-time logs
+      - PYTHONUNBUFFERED=1
+    
+    volumes:
+      # Mount inbox directory (persistent storage)
+      - ..\vault\00_inbox:/app/data/00_inbox
+      
+      # Mount attachments directory for media files
+      - ..\vault\Attachments:/app/data/Attachments
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

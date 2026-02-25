@@ -1,0 +1,26 @@
+# Slack Ingestion Configuration
+
+# Polling configuration
+poll:
+  # How far back to fetch messages (in minutes)
+  # Recommended: Set slightly longer than cron interval to avoid gaps
+  lookback_minutes: 15
+
+# Slack configuration
+slack:
+  # List of Slack channel IDs to monitor
+  # Find channel IDs: Right-click channel → View channel details → Copy ID
+  channels:
+    - C0ABJTT6LLC  # Replace with actual channel ID
+
+# File system paths (container paths)
+paths:
+  # Inbox directory for raw messages
+  inbox: /app/data/00_inbox
+  
+  # Metadata directory for run logs
+  metadata: /app/data/00_inbox/_meta
+  
+  # Attachments directory for media files (images, audio, video)
+  # Media files will be stored here and linked in markdown notes
+  attachments: /app/data/Attachments

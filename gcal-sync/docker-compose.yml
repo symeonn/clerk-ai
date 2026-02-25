@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  gcal-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gcal-sync
+    env_file:
+      - .env
+    volumes:
+      - ../vault:/vault:rw
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Warsaw

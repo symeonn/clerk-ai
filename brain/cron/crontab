@@ -1,0 +1,15 @@
+# Brain service cron schedule (Workflow Manager + Cognitive Engine)
+# Format: minute hour day month weekday command
+#
+# Default: Run once per day at 2 AM UTC
+# Adjust schedule as needed for your use case
+
+0 10,16,23 * * * cd /app && /usr/local/bin/python -m workflow_manager.main_runner >> /var/log/cron.log 2>&1
+
+# Examples:
+# Once per day at 2 AM:   0 2 * * *
+# Twice daily:            0 2,14 * * *
+# Every 6 hours:          0 */6 * * *
+# Once per week:          0 2 * * 0
+
+# Empty line required at end of crontab file
