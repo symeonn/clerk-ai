@@ -6,13 +6,6 @@ poll:
   # Recommended: Set slightly longer than cron interval to avoid gaps
   lookback_minutes: 15
 
-# Slack configuration
-slack:
-  # List of Slack channel IDs to monitor
-  # Find channel IDs: Right-click channel → View channel details → Copy ID
-  channels:
-    - C0ABJTT6LLC  # Replace with actual channel ID
-
 # File system paths (container paths)
 paths:
   # Inbox directory for raw messages

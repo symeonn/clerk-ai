@@ -9,13 +9,6 @@ Pull-based Slack ingestion service that polls channels, normalizes messages, and
    export SLACK_BOT_TOKEN=xoxb-your-token-here
    ```
 
-2. **Configure channels** in `config.yaml`:
-   ```yaml
-   slack:
-     channels:
-       - C0123456789  # Your channel IDs
-   ```
-
 3. **Start service**:
    ```bash
    docker-compose up -d
@@ -33,7 +26,6 @@ Pull-based Slack ingestion service that polls channels, normalizes messages, and
 
 ### config.yaml
 - `poll.lookback_minutes`: Fetch window (default: 60)
-- `slack.channels`: List of channel IDs to monitor
 - `paths.inbox`: Inbox directory path
 - `paths.metadata`: Metadata directory path
 - `paths.attachments`: Media attachments directory path

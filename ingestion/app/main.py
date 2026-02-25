@@ -53,8 +53,10 @@ def validate_config(config: dict) -> None:
     if "lookback_minutes" not in config["poll"]:
         raise ValueError("Missing poll.lookback_minutes in config")
     
-    if "channels" not in config["slack"] or not config["slack"]["channels"]:
-        raise ValueError("Missing or empty slack.channels in config")
+    # Channels can come from SLACK_CHANNELS env var
+    slack_channels_env = os.getenv("SLACK_CHANNELS")
+    if not slack_channels_env:
+        raise ValueError("Missing slack channels: set SLACK_CHANNELS env var")
     
     if "inbox" not in config["paths"]:
         raise ValueError("Missing paths.inbox in config")
@@ -85,7 +87,14 @@ def main():
     
     # Extract config values
     lookback_minutes = config["poll"]["lookback_minutes"]
-    channels = config["slack"]["channels"]
+    
+    # Load channels from environment variable (SLACK_CHANNELS)
+    slack_channels_env = os.getenv("SLACK_CHANNELS")
+    channels = []
+    if slack_channels_env:
+        # Parse comma-separated channel IDs from environment variable
+        channels = [ch.strip() for ch in slack_channels_env.split(",") if ch.strip()]
+    
     inbox_path = config["paths"]["inbox"]
     metadata_path = config["paths"]["metadata"]
     attachments_path = config["paths"]["attachments"]
