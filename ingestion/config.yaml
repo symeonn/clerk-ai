@@ -17,3 +17,16 @@ paths:
   # Attachments directory for media files (images, audio, video)
   # Media files will be stored here and linked in markdown notes
   attachments: D:\clerk-ai-v2\vault\Attachments
+
+# Obsidian configuration for generating mobile-friendly URLs
+obsidian:
+  # Vault name (required for Obsidian URLs)
+  # This should match your Obsidian vault name exactly
+  vault_name: vault
+  
+  # Folder path within vault where inbox files are stored
+  # This is relative to the vault root
+  inbox_folder: 00_inbox
+  
+  # Enable/disable Slack replies with Obsidian URLs
+  enable_slack_replies: true

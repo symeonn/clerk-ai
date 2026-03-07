@@ -23,17 +23,3 @@ This repository contains the implementation of a "Second Brain" system based on 
     ```bash
     docker-compose run second-brain-core --test
     ```
-
-### Deploy to QNAP
-
-1.  Build and copy image to QNAP (use in module folder):
-
-    ```bash
-    ./QNAP/deploy-to-qnap.sh <image-name>
-    ```
-
-2.  Run on QNAP using:
-
-    ```bash
-    docker-compose -f QNAP/docker-compose-qnap.yml up
-    ```

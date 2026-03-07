@@ -127,7 +127,7 @@ class GoogleCalendarSync:
     def _create_calendar_event(self, note_path: Path, post) -> Optional[str]:
         """Create a Google Calendar event from an Obsidian note"""
         dt, is_all_day = self._parse_note_datetime(post)
-        print(f"Creating calendar event for note: {note_path} (datetime: {dt}, all-day: {is_all_day})")
+        print(f"Creating gCal event for note: {note_path.name} (datetime: {dt}, all-day: {is_all_day})")
         if not dt:
             return None
         
@@ -162,10 +162,10 @@ class GoogleCalendarSync:
                 body=event
             ).execute()
             
-            logger.info(f"Created calendar event: {title}")
+            logger.info(f"Created gCal event: {title}")
             return created_event['id']
         except Exception as e:
-            logger.error(f"Error creating calendar event: {e}")
+            logger.error(f"Error creating gCal event: {e}")
             return None
     
     def _update_calendar_event(self, event_id: str, note_path: Path, post):
@@ -309,18 +309,18 @@ class GoogleCalendarSync:
         
         for note_path in events_dir.glob('*.md'):
             try:
-                print(f"Reading note: {note_path}")
+                print(f"Reading note: {note_path.name}")
                 with open(note_path, 'r', encoding='utf-8') as f:
                     post = frontmatter.load(f)
                 
                 # Skip if no date or due_date
                 if 'date' not in post.metadata and 'due_date' not in post.metadata:
-                    print(f"Skipping note (no date): {note_path}")
+                    print(f"Skipping note (no date): {note_path.name}")
                     continue
                 
                 note_key = str(note_path.relative_to(self.vault_path))
                 note_mtime = note_path.stat().st_mtime
-                print(f"Processing note: {note_path} (mtime: {note_mtime})")
+                print(f"Processing note: {note_path.name} (mtime: {note_mtime})")
                 # Check if note has associated calendar event
                 event_id = post.metadata.get('gcal_event_id')
                 
@@ -420,14 +420,14 @@ class GoogleCalendarSync:
     
     def run_sync(self):
         """Run a complete bidirectional sync"""
-        logger.info("Starting sync cycle...")
+        logger.info("Starting sync...")
         
         # Sync Obsidian -> Google Calendar
-        logger.info("Syncing Obsidian notes to Google Calendar...")
+        logger.info(">>>>> Syncing OBS -> gCal...")
         self.sync_obsidian_to_calendar()
         
         # Sync Google Calendar -> Obsidian
-        logger.info("Syncing Google Calendar to Obsidian notes...")
+        logger.info(">>>>> Syncing gCal -> OBS...")
         self.sync_calendar_to_obsidian()
         
         # Save sync state

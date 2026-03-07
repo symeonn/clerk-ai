@@ -108,9 +108,39 @@ class SlackConnector:
             "name": user.get("real_name") or user.get("name", user_id)
         }
     
+    def reply_to_message(self, channel_id: str, thread_ts: str, text: str) -> bool:
+        """
+        Reply to a Slack message in a thread.
+        
+        Args:
+            channel_id: Slack channel ID
+            thread_ts: Timestamp of the message to reply to
+            text: Reply text
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            response = self._make_request_post("chat.postMessage", {
+                "channel": channel_id,
+                "thread_ts": thread_ts,
+                "text": text
+            })
+            
+            if not response.get("ok"):
+                error = response.get("error", "unknown")
+                logger.error(f"Failed to reply to message {thread_ts}: {error}")
+                return False
+            
+            logger.info(f"Replied to message {thread_ts} in channel {channel_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Exception while replying to message {thread_ts}: {e}")
+            return False
+    
     def _make_request(self, endpoint: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Make a request to Slack API with rate limit handling.
+        Make a GET request to Slack API with rate limit handling.
         
         Args:
             endpoint: API endpoint (e.g., 'conversations.history')
@@ -128,6 +158,38 @@ class SlackConnector:
         
         while retry_count < max_retries:
             response = requests.get(url, headers=self.headers, params=params)
+            
+            # Handle rate limiting
+            if response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 60))
+                logger.warning(f"Rate limited. Sleeping for {retry_after} seconds")
+                time.sleep(retry_after)
+                retry_count += 1
+                continue
+            
+            response.raise_for_status()
+            return response.json()
+        
+        raise RuntimeError(f"Max retries exceeded for {endpoint}")
+    
+    def _make_request_post(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Make a POST request to Slack API with rate limit handling.
+        
+        Args:
+            endpoint: API endpoint (e.g., 'chat.postMessage')
+            data: JSON data to send
+            
+        Returns:
+            Response JSON
+        """
+        url = f"{self.base_url}/{endpoint}"
+        
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            response = requests.post(url, headers=self.headers, json=data)
             
             # Handle rate limiting
             if response.status_code == 429:

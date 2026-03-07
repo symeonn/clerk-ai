@@ -24,7 +24,7 @@ class Writer:
         # Track existing source_ids for deduplication
         self._existing_ids = self._load_existing_ids()
     
-    def write_message(self, normalized_msg: Dict[str, Any]) -> bool:
+    def write_message(self, normalized_msg: Dict[str, Any]) -> Optional[str]:
         """
         Write a normalized message to inbox with media attachments.
         
@@ -32,14 +32,14 @@ class Writer:
             normalized_msg: Normalized message with filename, frontmatter, content, and raw_message
             
         Returns:
-            True if written, False if skipped (duplicate)
+            Filename if written, None if skipped (duplicate)
         """
         source_id = normalized_msg["source_id"]
         
         # Check for duplicates
         if source_id in self._existing_ids:
             logger.debug(f"Skipping duplicate message: {source_id}")
-            return False
+            return None
         
         filename = normalized_msg["filename"]
         filepath = self.inbox_path / filename
@@ -47,7 +47,7 @@ class Writer:
         # Never overwrite existing files
         if filepath.exists():
             logger.warning(f"File already exists: {filename}, skipping")
-            return False
+            return None
         
         # Download media attachments if available
         downloaded_media = []
@@ -76,7 +76,7 @@ class Writer:
             filepath.write_text(content, encoding="utf-8")
             self._existing_ids.add(source_id)
             logger.info(f"Written: {filename}")
-            return True
+            return filename
         except Exception as e:
             logger.error(f"Failed to write {filename}: {e}")
             raise

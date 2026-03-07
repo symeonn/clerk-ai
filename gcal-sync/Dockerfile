@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY app/ ./app/
-COPY config.yaml .
+COPY config-docker.yaml ./config.yaml
 COPY credentials.json .
 COPY token.json .
 

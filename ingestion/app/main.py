@@ -9,6 +9,8 @@ import yaml
 import logging
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
+from typing import Dict, Any, Optional
 
 from slack_connector import SlackConnector
 from normalizer import Normalizer
@@ -44,7 +46,7 @@ def load_config(config_path: str) -> dict:
 
 def validate_config(config: dict) -> None:
     """Validate required configuration fields."""
-    required_fields = ["poll", "slack", "paths"]
+    required_fields = ["poll", "paths"]
     
     for field in required_fields:
         if field not in config:
@@ -66,6 +68,70 @@ def validate_config(config: dict) -> None:
     
     if "attachments" not in config["paths"]:
         raise ValueError("Missing paths.attachments in config")
+    
+    # Obsidian config is optional but validate if present
+    if "obsidian" in config:
+        obsidian_config = config["obsidian"]
+        if obsidian_config.get("enable_slack_replies", False):
+            if "vault_name" not in obsidian_config:
+                logger.warning("Obsidian slack replies enabled but vault_name not configured")
+
+
+def send_slack_reply(slack_connector: SlackConnector, normalized_msg: Dict[str, Any],
+                    filename: str, channel_id: str, obsidian_config: Dict[str, Any]) -> None:
+    """
+    Send a Slack reply with Obsidian URL to the original message.
+    
+    Args:
+        slack_connector: SlackConnector instance
+        normalized_msg: Normalized message data
+        filename: Name of the created file
+        channel_id: Slack channel ID
+        obsidian_config: Obsidian configuration dict
+    """
+    # Check if Slack replies are enabled
+    if not obsidian_config.get("enable_slack_replies", False):
+        return
+    
+    # Get message timestamp from raw_message
+    raw_message = normalized_msg.get("raw_message", {})
+    message_ts = raw_message.get("ts")
+    
+    if not message_ts:
+        logger.warning("Cannot send Slack reply: message timestamp not found")
+        return
+    
+    # Build Obsidian URL
+    vault_name = obsidian_config.get("vault_name", "")
+    inbox_folder = obsidian_config.get("inbox_folder", "")
+    
+    if not vault_name:
+        logger.warning("Cannot send Slack reply: vault_name not configured")
+        return
+    
+    # URL encode the vault name and file path
+    encoded_vault = quote(vault_name)
+    
+    # Build the file path within the vault
+    if inbox_folder:
+        file_path = f"{inbox_folder}/{filename}"
+    else:
+        file_path = filename
+    
+    encoded_file_path = quote(file_path)
+    
+    # Create Obsidian URL
+    obsidian_url = f"obsidian://open?vault={encoded_vault}&file={encoded_file_path}"
+    
+    # Create reply message
+    reply_text = f"✅ Message recorded in the inbox\n{obsidian_url}"
+    
+    # Send reply
+    try:
+        slack_connector.reply_to_message(channel_id, message_ts, reply_text)
+    except Exception as e:
+        logger.error(f"Failed to send Slack reply for message {message_ts}: {e}")
+        # Don't raise - this is a non-critical feature
 
 
 def main():
@@ -99,9 +165,15 @@ def main():
     metadata_path = config["paths"]["metadata"]
     attachments_path = config["paths"]["attachments"]
     
+    # Get Obsidian configuration
+    obsidian_config = config.get("obsidian", {})
+    
     logger.info(f"Lookback window: {lookback_minutes} minutes")
     logger.debug(f"Channels to process: {len(channels)}")
     logger.debug(f"Attachments path: {attachments_path}")
+    
+    if obsidian_config.get("enable_slack_replies", False):
+        logger.info(f"Slack replies enabled with Obsidian vault: {obsidian_config.get('vault_name', 'NOT SET')}")
     
     # Initialize components
     try:
@@ -131,10 +203,12 @@ def main():
             for message in messages:
                 try:
                     normalized = normalizer.normalize(message, channel_id)
-                    written = writer.write_message(normalized)
+                    filename = writer.write_message(normalized)
                     
-                    if written:
+                    if filename:
                         total_written += 1
+                        # Send Slack reply with Obsidian URL
+                        send_slack_reply(slack_connector, normalized, filename, channel_id, obsidian_config)
                     else:
                         total_skipped += 1
                 

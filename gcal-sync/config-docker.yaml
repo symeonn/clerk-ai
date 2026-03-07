@@ -1,0 +1,16 @@
+sync:
+  interval_minutes: 15
+  
+obsidian:
+  vault_path: "/app/vault"
+  vault_name: "myvault"
+  events_folder: "30_events"
+  
+google_calendar:
+  credentials_file: "credentials.json"
+  token_file: "token.json"
+  scopes:
+    - "https://www.googleapis.com/auth/calendar"
+  
+sync_state:
+  file: "sync_state.json"

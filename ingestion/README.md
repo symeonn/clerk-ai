@@ -23,12 +23,16 @@ Pull-based Slack ingestion service that polls channels, normalizes messages, and
 
 ### Environment Variables
 - `SLACK_BOT_TOKEN` (required): Slack Bot User OAuth Token
+- `SLACK_CHANNELS` (required): Comma-separated list of channel IDs to monitor
 
 ### config.yaml
 - `poll.lookback_minutes`: Fetch window (default: 60)
 - `paths.inbox`: Inbox directory path
 - `paths.metadata`: Metadata directory path
 - `paths.attachments`: Media attachments directory path
+- `obsidian.vault_name`: Obsidian vault name for generating URLs
+- `obsidian.inbox_folder`: Folder path within vault (e.g., "00_inbox")
+- `obsidian.enable_slack_replies`: Enable/disable Slack replies with Obsidian URLs (default: false)
 
 ### Cron Schedule
 Edit `cron/crontab` to adjust polling frequency (default: every 15 minutes).
@@ -84,6 +88,7 @@ Location: `vault/00_inbox/_meta/run_<timestamp>.json`
 - **User resolution**: Caches usernames to reduce API calls
 - **Media attachments**: Automatically downloads and embeds images, audio, and video files
 - **Media deduplication**: Avoids re-downloading existing media files
+- **Slack replies**: Automatically replies to ingested messages with Obsidian URLs for mobile access
 - **Fail-loud**: Exits on misconfiguration or critical errors
 
 ### Media Attachment Support
@@ -99,12 +104,32 @@ The ingestion service automatically detects and downloads media attachments from
 - **Embedding**: Media is automatically embedded in markdown notes using relative paths
 - **Error handling**: Failed downloads are logged but don't prevent message ingestion
 
+### Slack Reply with Obsidian URLs
+
+When enabled, the ingestion service automatically replies to each ingested Slack message with:
+- A confirmation message: "✅ Message recorded in the inbox"
+- An Obsidian URL that opens the note directly on mobile devices
+
+Example reply:
+```
+✅ Message recorded in the inbox
+obsidian://open?vault=clerk-ai-v2&file=00_inbox/20260227T103000_slack_1234567890_123456.md
+```
+
+This allows you to quickly open the ingested note in Obsidian on your Android phone by clicking the link in Slack.
+
+**Configuration**:
+1. Set `obsidian.vault_name` to match your Obsidian vault name exactly
+2. Set `obsidian.inbox_folder` to the folder path within your vault (e.g., "00_inbox")
+3. Set `obsidian.enable_slack_replies: true` to enable the feature
+
 ## Slack Bot Setup
 
 Required OAuth scopes:
 - `channels:history` - Read public channel messages
 - `users:read` - Resolve usernames
 - `files:read` - Download media attachments
+- `chat:write` - Send reply messages with Obsidian URLs (required if Slack replies are enabled)
 
 ## Troubleshooting
 
