@@ -235,8 +235,8 @@ def create_message_file(original_filename, title, summary, content, confidence, 
         if value is not None:
             lines.append(f"{key}: {value}")
     lines.append("---")
-    lines.append("")
-    lines.append(f"# {title}")
+    # lines.append("")
+    # lines.append(f"# {title}")
     lines.append("")
     lines.append(summary)
     lines.append("")
