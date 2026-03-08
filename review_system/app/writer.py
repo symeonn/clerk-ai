@@ -25,7 +25,8 @@ def write_daily_note(
         date = datetime.now()
     
     # Format: YYYY-MM-DD.md
-    filename = date.strftime("%Y-%m-%d.md")
+    # filename = date.strftime("%Y-%m-%d.md")
+    filename = "TODAY.md"
     daily_note_path = Path(vault_path) / filename
     
     # Build content
