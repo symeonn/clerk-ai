@@ -140,6 +140,72 @@ def save_state(state):
             temp_path.unlink()
 
 
+def load_tags():
+    """Load tags from tags.md file in vault root, create if not exists"""
+    tags_path = VAULT_BASE / "tags.md"
+    
+    # Create default tags file if it doesn't exist
+    if not tags_path.exists():
+        default_tags_content = """# Tags"""
+        ensure_dir(tags_path.parent)
+        write_file(tags_path, default_tags_content)
+        print(f"[TAGS] Created default tags file: {tags_path.name}")
+    
+    # Read and parse tags
+    try:
+        with open(tags_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Parse tags from markdown list format
+        tags = []
+        for line in content.split('\n'):
+            line = line.strip()
+            # Match lines starting with '- ' (markdown list items)
+            if line.startswith('- '):
+                tag = line[2:].strip()  # Remove '- ' prefix
+                if tag and not tag.startswith('#'):  # Skip empty lines and section headers
+                    tags.append(tag)
+        
+        print(f"[TAGS] Loaded {len(tags)} tags from {tags_path.name}")
+        return tags
+    except Exception as e:
+        print(f"[ERROR] Failed to load tags: {e}")
+        return []
+
+
+def save_new_tags(new_tags, existing_tags):
+    """Save new tags to tags.md file"""
+    if not new_tags:
+        return
+    
+    # Filter out tags that already exist
+    tags_to_add = [tag for tag in new_tags if tag not in existing_tags]
+    
+    if not tags_to_add:
+        print(f"[TAGS] No new tags to add")
+        return
+    
+    tags_path = VAULT_BASE / "tags.md"
+    
+    try:
+        # Read existing content
+        with open(tags_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Append new tags
+        lines = content.rstrip().split('\n')
+        for tag in tags_to_add:
+            lines.append(f"- {tag}")
+        
+        # Write back
+        new_content = '\n'.join(lines) + '\n'
+        write_file(tags_path, new_content)
+        
+        print(f"[TAGS] Added {len(tags_to_add)} new tag(s): {', '.join(tags_to_add)}")
+    except Exception as e:
+        print(f"[ERROR] Failed to save new tags: {e}")
+
+
 def get_existing_projects():
     """Get list of existing project names from projects directory"""
     projects_path = VAULT_BASE / PROJECTS_DIR
@@ -218,7 +284,7 @@ def archive_file(file_path):
         return False
 
 
-def create_message_file(original_filename, title, summary, content, confidence, score, extra_frontmatter=None):
+def create_message_file(original_filename, title, summary, content, confidence, score, tags=None, extra_frontmatter=None):
     """Create formatted message file content"""
     frontmatter = {
         "source_file": original_filename,
@@ -234,6 +300,12 @@ def create_message_file(original_filename, title, summary, content, confidence, 
     for key, value in frontmatter.items():
         if value is not None:
             lines.append(f"{key}: {value}")
+    
+    # Add tags in frontmatter if present
+    if tags and len(tags) > 0:
+        tags_str = ", ".join([f"#{tag}" for tag in tags])
+        lines.append(f"tags: {tags_str}")
+    
     lines.append("---")
     # lines.append("")
     # lines.append(f"# {title}")
@@ -249,7 +321,7 @@ def create_message_file(original_filename, title, summary, content, confidence, 
     return "\n".join(lines)
 
 
-def route_project(result, original_file, content):
+def route_project(result, original_file, content, tags=None):
     """Route message to project"""
     base = get_base_path()
     project_name = result.get("project_name") or "default_project"
@@ -259,6 +331,7 @@ def route_project(result, original_file, content):
     confidence = result.get("confidence", 0.0)
     score = result.get("score", 0.0)
     next_action = result.get("next_action")
+    tags = tags or []
     
     timestamp = get_timestamp()
     title_slug = slugify(title)
@@ -332,6 +405,7 @@ def route_project(result, original_file, content):
         content,
         confidence,
         score,
+        tags,
         extra_frontmatter
     )
     
@@ -342,13 +416,14 @@ def route_project(result, original_file, content):
     return False
 
 
-def route_note(result, original_file, content):
+def route_note(result, original_file, content, tags=None):
     """Route message to notes"""
     base = get_base_path()
     title = result.get("title", "Untitled")
     summary = result.get("summary", "")
     confidence = result.get("confidence", 0.0)
     score = result.get("score", 0.0)
+    tags = tags or []
     
     timestamp = get_timestamp()
     title_slug = slugify(title)
@@ -361,7 +436,8 @@ def route_note(result, original_file, content):
         summary,
         content,
         confidence,
-        score
+        score,
+        tags
     )
     
     if write_file(note_file, message_content):
@@ -371,7 +447,7 @@ def route_note(result, original_file, content):
     return False
 
 
-def route_event(result, original_file, content):
+def route_event(result, original_file, content, tags=None):
     """Route message to events"""
     base = get_base_path()
     title = result.get("title", "Untitled")
@@ -382,6 +458,7 @@ def route_event(result, original_file, content):
     due_date = result.get("due_date")
     time = result.get("time")
     all_day = result.get("all_day", True)
+    tags = tags or []
     
     timestamp = get_timestamp()
     title_slug = slugify(title)
@@ -404,6 +481,7 @@ def route_event(result, original_file, content):
         content,
         confidence,
         score,
+        tags,
         extra_frontmatter
     )
     
@@ -471,6 +549,9 @@ def process_file(file_path, state):
         # Get recent context for better grouping
         recent_context = get_recent_context(state, limit=5)
         
+        # Load available tags
+        available_tags = load_tags()
+        
         # Prepare input for cognitive engine
         input_data = {
             "id": file_path.stem,
@@ -479,6 +560,7 @@ def process_file(file_path, state):
             "timestamp": get_iso_timestamp(),
             "existing_projects": existing_projects,
             "recent_context": recent_context,
+            "available_tags": available_tags,
             "today": datetime.utcnow().strftime("%Y-%m-%d")
         }
         
@@ -494,8 +576,14 @@ def process_file(file_path, state):
         confidence = result.get("confidence", 0.0)
         score = result.get("score", 0.0)
         summary = result.get("summary", "")
+        tags = result.get("tags", [])
         
         print(f"[CLASSIFICATION] Type: {msg_type}, Confidence: {confidence:.2f}, Score: {score:.2f}")
+        if tags:
+            print(f"[TAGS] Generated tags: {', '.join(tags)}")
+        
+        # Save new tags to tags.md
+        save_new_tags(tags, available_tags)
         
         # Prepare result dict for routing functions
         result_for_routing = {
@@ -529,11 +617,11 @@ def process_file(file_path, state):
     success = False
     
     if msg_type == "project":
-        success = route_project(result_for_routing, file_path, content)
+        success = route_project(result_for_routing, file_path, content, tags)
     elif msg_type == "note":
-        success = route_note(result_for_routing, file_path, content)
+        success = route_note(result_for_routing, file_path, content, tags)
     elif msg_type == "event":
-        success = route_event(result_for_routing, file_path, content)
+        success = route_event(result_for_routing, file_path, content, tags)
     elif msg_type == "review":
         success = route_review(result_for_routing, file_path, content)
     else:

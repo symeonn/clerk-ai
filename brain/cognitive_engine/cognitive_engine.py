@@ -9,6 +9,7 @@ Core Principle: All cognitive work done by OpenAI model with temperature=0 for d
 
 import json
 import os
+import re
 from datetime import datetime
 from typing import Dict, List, Any
 from openai import OpenAI
@@ -26,6 +27,51 @@ class CognitiveEngineError(Exception):
 class ValidationError(CognitiveEngineError):
     """Raised when output validation fails."""
     pass
+
+
+def normalize_time_format(time_str: str) -> str:
+    """
+    Normalize time string to HH:MM format.
+    
+    Handles common format issues:
+    - "1320" -> "13:20" (missing colon)
+    - "13:20:00" -> "13:20" (extra seconds)
+    - Validates final format
+    
+    Args:
+        time_str: Time string in various formats
+        
+    Returns:
+        Normalized time in HH:MM format
+        
+    Raises:
+        ValueError: If time cannot be normalized to valid HH:MM format
+    """
+    if not time_str:
+        return time_str
+    
+    # Remove whitespace
+    time_str = time_str.strip()
+    
+    # If already in HH:MM format, return as-is
+    if re.match(r'^\d{2}:\d{2}$', time_str):
+        return time_str
+    
+    # Try to handle HH:MM:SS format (strip seconds)
+    if re.match(r'^\d{2}:\d{2}:\d{2}$', time_str):
+        return time_str[:5]
+    
+    # Try to handle HHMM format (no colon) - convert to HH:MM
+    if re.match(r'^\d{4}$', time_str):
+        hours = time_str[:2]
+        minutes = time_str[2:4]
+        time_str = f"{hours}:{minutes}"
+    
+    # Validate final format
+    if not re.match(r'^\d{2}:\d{2}$', time_str):
+        raise ValueError(f"Cannot normalize time format: {time_str}")
+    
+    return time_str
 
 
 class CognitiveEngine:
@@ -57,6 +103,7 @@ class CognitiveEngine:
             "timestamp": "ISO-8601 string",
             "existing_projects": ["project_name_1", ...],
             "recent_context": [{"text": "...", "project": "..."}],  # Optional
+            "available_tags": ["tag_1", "tag_2", ...],  # Optional
             "today": "YYYY-MM-DD"
         }
         
@@ -67,10 +114,11 @@ class CognitiveEngine:
         text = input_json.get('text', '')
         existing_projects = input_json.get('existing_projects', [])
         recent_context = input_json.get('recent_context', [])
+        available_tags = input_json.get('available_tags', [])
         today = input_json.get('today', datetime.now().strftime('%Y-%m-%d'))
         
         # Call LLM for all cognitive tasks
-        llm_output = self._call_llm(text, existing_projects, recent_context, today)
+        llm_output = self._call_llm(text, existing_projects, recent_context, available_tags, today)
         
         # Add ID to output
         llm_output['id'] = item_id
@@ -80,7 +128,7 @@ class CognitiveEngine:
         
         return llm_output
     
-    def _call_llm(self, text: str, existing_projects: List[str], recent_context: List[Dict[str, str]], today: str) -> Dict[str, Any]:
+    def _call_llm(self, text: str, existing_projects: List[str], recent_context: List[Dict[str, str]], available_tags: List[str], today: str) -> Dict[str, Any]:
         """
         Call OpenAI API with structured output for all cognitive tasks.
         
@@ -88,7 +136,7 @@ class CognitiveEngine:
         Uses JSON schema enforcement.
         """
         system_prompt = self._build_system_prompt()
-        user_prompt = self._build_user_prompt(text, existing_projects, recent_context, today)
+        user_prompt = self._build_user_prompt(text, existing_projects, recent_context, available_tags, today)
         
         try:
             response = self.client.chat.completions.create(
@@ -114,127 +162,80 @@ class CognitiveEngine:
             raise CognitiveEngineError(f"LLM API call failed: {e}")
     
     def _build_system_prompt(self) -> str:
-        """Build the system prompt defining the cognitive engine's role and rules."""
-        return """You are a Cognitive Engine. Your role is to analyze input text and produce structured cognitive analysis.
-
-You must perform ALL of the following tasks and return a single JSON object:
-
-1. CLASSIFICATION
-   - Classify text into exactly one category: "project", "note", "event", or "review"
-   - Rules:
-     * "event" ONLY if explicit date or time exists in text
-     * "project" for action-oriented, goal-related content, or content matching existing projects
-     * "note" for informational content, ideas, references, observations
-     * "review" for ambiguous content or when confidence < 0.6
-
-2. SUMMARIZATION
-   - Create 1-2 sentence summary
-   - Dense, neutral, no hallucinations
-   - Preserve key information
-   - Write directly about the subject matter
-   - Use content-focused language only (no meta-level references to the text itself)
-   - Describe the substance and context, not the existence or form of the text
-
-3. CONFIDENCE
-   - Float 0.0-1.0 representing classification certainty
-   - Consider text clarity, classification strength, ambiguity
-   - If confidence < 0.6, classification MUST be "review"
-
-4. SCORE
-   - Float 0.0-1.0 representing importance/urgency
-   - Consider urgency indicators, impact, time sensitivity, strategic importance
-
-5. ROUTING
-   - Choose routing type (same as classification unless confidence < 0.6)
-   - If routing to "project":
-     * CRITICAL: Generate SHORT, GENERAL, CONCRETE project names (1-2 words, max 20 chars)
-     * Use the CORE SUBJECT/ENTITY as the project name (e.g., "conservator", "website", "client_x")
-     * AVOID descriptive phrases or action verbs in the name
-     * Check existing_projects list for similar/related projects - prefer reusing existing project names
-     * If recent_context shows related messages, use the same project name to group them together
-     * Determine if project is new (not in existing_projects list)
-     * Include project object with "name", "is_new", and "next_action" fields
-     * "next_action" should be a concise, actionable next step inferred from the message content
-   - If routing to "event":
-     * Extract or infer "due_date" in YYYY-MM-DD format from the message content
-     * Use TODAY date as reference for relative dates (e.g., "tomorrow", "next week")
-     * If no specific date can be determined, set due_date to null
-     * Extract "time" in HH:MM format (24-hour) if a specific time is mentioned in the message
-     * If no specific time is mentioned, set time to null and all_day to true
-     * If a specific time is mentioned, set time to the extracted time and all_day to false
-   - If routing to anything else, omit project/event-specific fields
-
-6. TAP-ON-THE-SHOULDER DETECTION
-   - Detect items worth resurfacing (max 3 candidates)
-   - Each candidate needs: "reason" (string) and "score" (0.0-1.0)
-   - Consider: high urgency, strategic importance, actionable projects
-   - If no candidates, return empty array
-
-CRITICAL OUTPUT RULES:
-- Return ONLY valid JSON, no explanations
-- Strictly follow the schema provided in user prompt
-- tap_on_the_shoulder.candidates length ≤ 3
-- project object exists ONLY if routing.type == "project"
-- event object exists ONLY if routing.type == "event"
-- All scores/confidence must be 0.0-1.0
-- No extra fields allowed"""
+        """Load the system prompt from SYSTEM_PROMPT.md file."""
+        prompt_path = os.path.join(os.path.dirname(__file__), 'SYSTEM_PROMPT.md')
+        try:
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            raise CognitiveEngineError(f"System prompt file not found: {prompt_path}")
+        except Exception as e:
+            raise CognitiveEngineError(f"Failed to load system prompt: {e}")
     
-    def _build_user_prompt(self, text: str, existing_projects: List[str], recent_context: List[Dict[str, str]], today: str) -> str:
+    def _build_user_prompt(self, text: str, existing_projects: List[str], recent_context: List[Dict[str, str]], available_tags: List[str], today: str) -> str:
         """Build the user prompt with input data and schema."""
         existing_projects_str = json.dumps(existing_projects)
         recent_context_str = json.dumps(recent_context) if recent_context else "[]"
+        available_tags_str = json.dumps(available_tags) if available_tags else "[]"
         
         return f"""Analyze this input:
-
-TEXT: "{text}"
-EXISTING_PROJECTS: {existing_projects_str}
-RECENT_CONTEXT: {recent_context_str}
-TODAY: {today}
-
-Return a JSON object with this EXACT schema:
-
-{{
-  "classification": "project | note | event | review",
-  "summary": "string (1-2 sentences)",
-  "confidence": 0.0,
-  "score": 0.0,
-  "routing": {{
-    "type": "project | note | event | review",
-    "project": {{
-      "name": "string",
-      "is_new": true,
-      "next_action": "string"
-    }},
-    "event": {{
-      "due_date": "YYYY-MM-DD or null",
-      "time": "HH:MM or null",
-      "all_day": false
-    }}
-  }},
-  "tap_on_the_shoulder": {{
-    "date": "{today}",
-    "candidates": [
-      {{
-        "reason": "string",
-        "score": 0.0
-      }}
-    ]
-  }}
-}}
-
-IMPORTANT:
-- If routing.type == "project", include "project" field with name, is_new, and next_action
-- If routing.type == "event", include "event" field with due_date, time, and all_day
-  * If time is present in message: extract time in HH:MM format, set all_day to false
-  * If time is NOT present: set time to null, set all_day to true
-- If routing.type is "note" or "review", omit both "project" and "event" fields
-- tap_on_the_shoulder.candidates max length is 3
-- If no tap candidates, use empty array []
-- confidence < 0.6 means classification AND routing.type must be "review"
-- Use RECENT_CONTEXT to identify related messages and group them under the same project name
-- For events: parse relative dates like "tomorrow", "next week" using TODAY as reference
-
-Return ONLY the JSON object, nothing else."""
+        
+        TEXT: "{text}"
+        EXISTING_PROJECTS: {existing_projects_str}
+        RECENT_CONTEXT: {recent_context_str}
+        AVAILABLE_TAGS: {available_tags_str}
+        TODAY: {today}
+        
+        Return a JSON object with this EXACT schema:
+        
+        {{
+          "classification": "project | note | event | review",
+          "summary": "string (1-2 sentences)",
+          "confidence": 0.0,
+          "score": 0.0,
+          "tags": ["tag1", "tag2", "tag3"],
+          "routing": {{
+            "type": "project | note | event | review",
+            "project": {{
+              "name": "string",
+              "is_new": true,
+              "next_action": "string"
+            }},
+            "event": {{
+              "due_date": "YYYY-MM-DD or null",
+              "time": "HH:MM or null",
+              "all_day": false
+            }}
+          }},
+          "tap_on_the_shoulder": {{
+            "date": "{today}",
+            "candidates": [
+              {{
+                "reason": "string",
+                "score": 0.0
+              }}
+            ]
+          }}
+        }}
+        
+        IMPORTANT:
+        - Generate maximum 3 Obsidian tags based on context in the "tags" field
+        - Prefer reusing tags from AVAILABLE_TAGS when appropriate
+        - Create new tags only when existing tags don't fit the content
+        - Tags should be lowercase, use underscores for multi-word tags (e.g., "machine_learning")
+        - If no suitable tags, use empty array []
+        - If routing.type == "project", include "project" field with name, is_new, and next_action
+        - If routing.type == "event", include "event" field with due_date, time, and all_day
+          * If time is present in message: extract time in HH:MM format, set all_day to false
+          * If time is NOT present: set time to null, set all_day to true
+        - If routing.type is "note" or "review", omit both "project" and "event" fields
+        - tap_on_the_shoulder.candidates max length is 3
+        - If no tap candidates, use empty array []
+        - confidence < 0.6 means classification AND routing.type must be "review"
+        - Use RECENT_CONTEXT to identify related messages and group them under the same project name
+        - For events: parse relative dates like "tomorrow", "next week" using TODAY as reference
+        
+        Return ONLY the JSON object, nothing else."""
     
     def _validate_output(self, output: Dict[str, Any]) -> None:
         """
@@ -242,10 +243,22 @@ Return ONLY the JSON object, nothing else."""
         Raises ValidationError if invalid.
         """
         # Required top-level fields
-        required_fields = ['classification', 'summary', 'confidence', 'score', 'routing', 'tap_on_the_shoulder']
+        required_fields = ['classification', 'summary', 'confidence', 'score', 'tags', 'routing', 'tap_on_the_shoulder']
         for field in required_fields:
             if field not in output:
                 raise ValidationError(f"Missing required field: {field}")
+        
+        # Validate tags
+        tags = output['tags']
+        if not isinstance(tags, list):
+            raise ValidationError("tags must be an array")
+        
+        if len(tags) > 3:
+            raise ValidationError(f"tags has {len(tags)} items, max is 3")
+        
+        for i, tag in enumerate(tags):
+            if not isinstance(tag, str):
+                raise ValidationError(f"Tag {i} must be a string")
         
         # Validate classification
         valid_classifications = ['project', 'note', 'event', 'review']
@@ -313,8 +326,16 @@ Return ONLY the JSON object, nothing else."""
             # time is optional, can be null or HH:MM format
             if 'time' in event:
                 time = event['time']
-                if time is not None and not isinstance(time, str):
-                    raise ValidationError("event.time must be string or null")
+                if time is not None:
+                    if not isinstance(time, str):
+                        raise ValidationError("event.time must be string or null")
+                    
+                    # Normalize and validate time format
+                    try:
+                        normalized_time = normalize_time_format(time)
+                        event['time'] = normalized_time
+                    except ValueError as e:
+                        raise ValidationError(f"Invalid time format '{time}': {e}")
             else:
                 # Set default value if not provided by LLM
                 event['time'] = None

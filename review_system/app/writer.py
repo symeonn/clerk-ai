@@ -51,7 +51,7 @@ def write_daily_note(
         for project_file in project_files:
             project_name = project_file.stem
             # Create Obsidian link: [[10_projects/project_name]]
-            content_lines.append(f"- [[10_projects/{project_name}]]")
+            content_lines.append(f"- [[10_projects/{project_name}|{project_name}]]")
     
     content = "\n".join(content_lines) + "\n"
     
