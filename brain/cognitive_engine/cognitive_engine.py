@@ -29,17 +29,19 @@ class ValidationError(CognitiveEngineError):
     pass
 
 
-def normalize_time_format(time_str: str) -> str:
+def normalize_time_format(time_input) -> str:
     """
-    Normalize time string to HH:MM format.
+    Normalize time to HH:MM format.
     
     Handles common format issues:
+    - 660 (minutes) -> "11:00"
     - "1320" -> "13:20" (missing colon)
     - "13:20:00" -> "13:20" (extra seconds)
+    - "13:20" -> "13:20" (already correct)
     - Validates final format
     
     Args:
-        time_str: Time string in various formats
+        time_input: Time as int (minutes), or string in various formats
         
     Returns:
         Normalized time in HH:MM format
@@ -47,11 +49,21 @@ def normalize_time_format(time_str: str) -> str:
     Raises:
         ValueError: If time cannot be normalized to valid HH:MM format
     """
-    if not time_str:
-        return time_str
+    if not time_input and time_input != 0:
+        return time_input
     
-    # Remove whitespace
-    time_str = time_str.strip()
+    # Handle integer input (minutes since midnight)
+    if isinstance(time_input, int):
+        if 0 <= time_input <= 1440:  # Valid range: 0-1440 minutes (0-24 hours)
+            hours = time_input // 60
+            minutes = time_input % 60
+            time_str = f"{hours:02d}:{minutes:02d}"
+            return time_str
+        else:
+            raise ValueError(f"Invalid minutes value: {time_input} (must be 0-1440)")
+    
+    # Convert to string for remaining validations
+    time_str = str(time_input).strip()
     
     # If already in HH:MM format, return as-is
     if re.match(r'^\d{2}:\d{2}$', time_str):

@@ -447,6 +447,22 @@ def route_note(result, original_file, content, tags=None):
     return False
 
 
+def extract_clean_content(content):
+    """Extract clean content after metadata section (after --- separator)"""
+    try:
+        # Split by --- to separate metadata from actual content
+        if '---' in content:
+            parts = content.split('---')
+            # Get text after the --- separator and strip whitespace
+            if len(parts) > 1:
+                clean_text = '---'.join(parts[1:]).strip()
+                return clean_text
+        return content.strip()
+    except Exception as e:
+        print(f"[WARN] Failed to extract clean content: {e}")
+        return content
+
+
 def route_event(result, original_file, content, tags=None):
     """Route message to events"""
     base = get_base_path()
@@ -465,20 +481,24 @@ def route_event(result, original_file, content, tags=None):
     
     event_file = base / EVENTS_DIR / f"{timestamp}_{title_slug}.md"
     
+    # Clean content to remove metadata for events
+    clean_content = extract_clean_content(content)
+    
     extra_frontmatter = {
         "event_id": str(uuid4()),
         "gcal_id": None,
         "datetime": event_datetime,
         "due_date": due_date,
         "time": time,
-        "all_day": all_day
+        "all_day": all_day,
+        "tags": tags
     }
     
     message_content = create_message_file(
         original_file.name,
         title,
         summary,
-        content,
+        clean_content,
         confidence,
         score,
         tags,
