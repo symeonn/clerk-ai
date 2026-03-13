@@ -31,23 +31,23 @@ class ValidationError(CognitiveEngineError):
 
 def normalize_time_format(time_input) -> str:
     """
-    Normalize time to HH:MM format.
+    Normalize time to HH:MM:SS format (Obsidian format).
     
     Handles common format issues:
-    - 660 (minutes) -> "11:00"
-    - "1320" -> "13:20" (missing colon)
-    - "13:20:00" -> "13:20" (extra seconds)
-    - "13:20" -> "13:20" (already correct)
+    - 660 (minutes) -> "11:00:00"
+    - "1320" -> "13:20:00" (missing colon)
+    - "13:20:00" -> "13:20:00" (already correct)
+    - "13:20" -> "13:20:00" (add seconds)
     - Validates final format
     
     Args:
         time_input: Time as int (minutes), or string in various formats
         
     Returns:
-        Normalized time in HH:MM format
+        Normalized time in HH:MM:SS format
         
     Raises:
-        ValueError: If time cannot be normalized to valid HH:MM format
+        ValueError: If time cannot be normalized to valid HH:MM:SS format
     """
     if not time_input and time_input != 0:
         return time_input
@@ -57,7 +57,7 @@ def normalize_time_format(time_input) -> str:
         if 0 <= time_input <= 1440:  # Valid range: 0-1440 minutes (0-24 hours)
             hours = time_input // 60
             minutes = time_input % 60
-            time_str = f"{hours:02d}:{minutes:02d}"
+            time_str = f"{hours:02d}:{minutes:02d}:00"
             return time_str
         else:
             raise ValueError(f"Invalid minutes value: {time_input} (must be 0-1440)")
@@ -65,22 +65,22 @@ def normalize_time_format(time_input) -> str:
     # Convert to string for remaining validations
     time_str = str(time_input).strip()
     
-    # If already in HH:MM format, return as-is
-    if re.match(r'^\d{2}:\d{2}$', time_str):
+    # If already in HH:MM:SS format, return as-is
+    if re.match(r'^\d{2}:\d{2}:\d{2}$', time_str):
         return time_str
     
-    # Try to handle HH:MM:SS format (strip seconds)
-    if re.match(r'^\d{2}:\d{2}:\d{2}$', time_str):
-        return time_str[:5]
+    # If in HH:MM format, add seconds
+    if re.match(r'^\d{2}:\d{2}$', time_str):
+        return time_str + ":00"
     
-    # Try to handle HHMM format (no colon) - convert to HH:MM
+    # Try to handle HHMM format (no colon) - convert to HH:MM:SS
     if re.match(r'^\d{4}$', time_str):
         hours = time_str[:2]
         minutes = time_str[2:4]
-        time_str = f"{hours}:{minutes}"
+        time_str = f"{hours}:{minutes}:00"
     
     # Validate final format
-    if not re.match(r'^\d{2}:\d{2}$', time_str):
+    if not re.match(r'^\d{2}:\d{2}:\d{2}$', time_str):
         raise ValueError(f"Cannot normalize time format: {time_str}")
     
     return time_str
@@ -215,7 +215,7 @@ class CognitiveEngine:
             }},
             "event": {{
               "due_date": "YYYY-MM-DD or null",
-              "time": "HH:MM or null",
+              "time": "HH:MM:SS or null",
               "all_day": false
             }}
           }},
@@ -238,7 +238,7 @@ class CognitiveEngine:
         - If no suitable tags, use empty array []
         - If routing.type == "project", include "project" field with name, is_new, and next_action
         - If routing.type == "event", include "event" field with due_date, time, and all_day
-          * If time is present in message: extract time in HH:MM format, set all_day to false
+          * If time is present in message: extract time in HH:MM:SS format (Obsidian format), set all_day to false
           * If time is NOT present: set time to null, set all_day to true
         - If routing.type is "note" or "review", omit both "project" and "event" fields
         - tap_on_the_shoulder.candidates max length is 3
@@ -335,14 +335,11 @@ class CognitiveEngine:
             if due_date is not None and not isinstance(due_date, str):
                 raise ValidationError("event.due_date must be string or null")
             
-            # time is optional, can be null or HH:MM format
+            # time is optional, can be null or HH:MM:SS format
             if 'time' in event:
                 time = event['time']
                 if time is not None:
-                    if not isinstance(time, str):
-                        raise ValidationError("event.time must be string or null")
-                    
-                    # Normalize and validate time format
+                    # Normalize and validate time format (handles int, HH:MM, HH:MM:SS, etc.)
                     try:
                         normalized_time = normalize_time_format(time)
                         event['time'] = normalized_time

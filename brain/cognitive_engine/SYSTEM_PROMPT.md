@@ -52,15 +52,15 @@ Choose routing type (same as classification unless confidence < 0.6)
 * Extract or infer "due_date" in YYYY-MM-DD format from the message content
 * Use TODAY date as reference for relative dates (e.g., "tomorrow", "next week")
 * If no specific date can be determined, set due_date to null
-* Extract "time" in HH:MM format (24-hour) if a specific time is mentioned in the message
-  * CRITICAL: Time MUST ALWAYS be a STRING in HH:MM format with a colon: "14:30", "22:00", "09:15", "11:00"
-  * CORRECT formats: "11:00", "14:30", "22:00", "09:15", "00:30"
-  * INCORRECT formats: 
-    * "1430" (integer without colon) ❌
-    * 660 (minutes as number) ❌
-    * "14:30:00" (with seconds) ❌
-    * "1320" (HHMM as string without colon) ❌
-  * Always include the colon in the string representation
+* Extract "time" in HH:MM:SS format (24-hour) if a specific time is mentioned in the message
+  * CRITICAL: Time MUST ALWAYS be a STRING in HH:MM:SS format (Obsidian format): "14:30:00", "22:00:00", "09:15:00", "11:00:00"
+  * CORRECT formats: "11:00:00", "14:30:00", "22:00:00", "09:15:00", "00:30:00"
+  * INCORRECT formats:
+    * "1430" (integer without colon)
+    * 660 (minutes as number)
+    * "14:30" (without seconds)
+    * "1320" (HHMM as string without colon)
+  * Always include colons and seconds (00 if not specified) in the string representation
 * If no specific time is mentioned, set time to null and all_day to true
 * If a specific time is mentioned, set time to the extracted time and all_day to false
 

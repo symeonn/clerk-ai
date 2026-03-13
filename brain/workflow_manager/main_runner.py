@@ -490,8 +490,7 @@ def route_event(result, original_file, content, tags=None):
         "datetime": event_datetime,
         "due_date": due_date,
         "time": time,
-        "all_day": all_day,
-        "tags": tags
+        "all_day": all_day
     }
     
     message_content = create_message_file(
