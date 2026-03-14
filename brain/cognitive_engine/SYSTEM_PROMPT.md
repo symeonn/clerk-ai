@@ -49,9 +49,9 @@ Choose routing type (same as classification unless confidence < 0.6)
 * "next_action" should be a concise, actionable next step inferred from the message content
 
 **If routing to "event":**
-* Extract or infer "due_date" in YYYY-MM-DD format from the message content
+* Extract or infer "date" in YYYY-MM-DD format from the message content
 * Use TODAY date as reference for relative dates (e.g., "tomorrow", "next week")
-* If no specific date can be determined, set due_date to null
+* If no specific date can be determined, set date to null
 * Extract "time" in HH:MM:SS format (24-hour) if a specific time is mentioned in the message
   * CRITICAL: Time MUST ALWAYS be a STRING in HH:MM:SS format (Obsidian format): "14:30:00", "22:00:00", "09:15:00", "11:00:00"
   * CORRECT formats: "11:00:00", "14:30:00", "22:00:00", "09:15:00", "00:30:00"

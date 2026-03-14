@@ -214,7 +214,7 @@ class CognitiveEngine:
               "next_action": "string"
             }},
             "event": {{
-              "due_date": "YYYY-MM-DD or null",
+              "date": "YYYY-MM-DD or null",
               "time": "HH:MM:SS or null",
               "all_day": false
             }}
@@ -237,7 +237,7 @@ class CognitiveEngine:
         - Tags should be lowercase, use underscores for multi-word tags (e.g., "machine_learning")
         - If no suitable tags, use empty array []
         - If routing.type == "project", include "project" field with name, is_new, and next_action
-        - If routing.type == "event", include "event" field with due_date, time, and all_day
+        - If routing.type == "event", include "event" field with date, time, and all_day
           * If time is present in message: extract time in HH:MM:SS format (Obsidian format), set all_day to false
           * If time is NOT present: set time to null, set all_day to true
         - If routing.type is "note" or "review", omit both "project" and "event" fields
@@ -327,13 +327,13 @@ class CognitiveEngine:
                 raise ValidationError("routing.type is 'event' but event object missing")
             
             event = output['routing']['event']
-            if 'due_date' not in event:
-                raise ValidationError("event object missing required field (due_date)")
+            if 'date' not in event:
+                raise ValidationError("event object missing required field (date)")
             
-            # due_date can be null or a string in YYYY-MM-DD format
-            due_date = event['due_date']
-            if due_date is not None and not isinstance(due_date, str):
-                raise ValidationError("event.due_date must be string or null")
+            # date can be null or a string in YYYY-MM-DD format
+            date = event['date']
+            if date is not None and not isinstance(date, str):
+                raise ValidationError("event.date must be string or null")
             
             # time is optional, can be null or HH:MM:SS format
             if 'time' in event:

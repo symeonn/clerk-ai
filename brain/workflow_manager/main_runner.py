@@ -473,7 +473,7 @@ def route_event(result, original_file, content, tags=None):
     confidence = result.get("confidence", 0.0)
     score = result.get("score", 0.0)
     event_datetime = result.get("datetime")
-    due_date = result.get("due_date")
+    date = result.get("date")
     time = result.get("time")
     all_day = result.get("all_day", True)
     tags = tags or []
@@ -490,7 +490,7 @@ def route_event(result, original_file, content, tags=None):
         "event_id": str(uuid4()),
         "gcal_id": None,
         "datetime": event_datetime,
-        "due_date": due_date,
+        "date": date,
         "time": time,
         "all_day": all_day
     }
@@ -624,7 +624,7 @@ def process_file(file_path, state):
         # Add event info if applicable
         if msg_type == "event":
             event_info = routing.get("event", {})
-            result_for_routing["due_date"] = event_info.get("due_date")
+            result_for_routing["date"] = event_info.get("date")
             result_for_routing["time"] = event_info.get("time")
             result_for_routing["all_day"] = event_info.get("all_day", True)
         

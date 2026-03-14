@@ -2,6 +2,7 @@
 """
 Google Calendar <-> Obsidian Vault Bidirectional Sync
 """
+from importlib import metadata
 import os
 import json
 import time
@@ -100,26 +101,23 @@ class GoogleCalendarSync:
         date_str = metadata.get('date')
 
         if not date_str:
-            # Try due_date as fallback
-            date_str = metadata.get('due_date')
+            # Try date as fallback
+            date_str = metadata.get('date')
 
         if not date_str:
             return None, False
         
         # Parse date
         try:
-            dt = date_parser.parse(str(date_str))
-            
-            # Check for time field
-            time_str = metadata.get('time')
+            date_str = metadata.get("date")
+            time_str = metadata.get("time")
+
             if time_str and not is_all_day:
-                # Parse time and combine with date
-                time_obj = date_parser.parse(str(time_str))
-                dt = dt.replace(hour=time_obj.hour, minute=time_obj.minute, second=0)
+                dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
                 return dt, False
             else:
-                # All-day event
-                return dt.replace(hour=0, minute=0, second=0), True
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                return dt, True
         except Exception as e:
             logger.error(f"Error parsing date/time: {e}")
             return None, False
@@ -313,8 +311,8 @@ class GoogleCalendarSync:
                 with open(note_path, 'r', encoding='utf-8') as f:
                     post = frontmatter.load(f)
                 
-                # Skip if no date or due_date
-                if 'date' not in post.metadata and 'due_date' not in post.metadata:
+                # Skip if no date or date
+                if 'date' not in post.metadata and 'date' not in post.metadata:
                     print(f"Skipping note (no date): {note_path.name}")
                     continue
                 
