@@ -303,8 +303,9 @@ def create_message_file(original_filename, title, summary, content, confidence, 
     
     # Add tags in frontmatter if present
     if tags and len(tags) > 0:
-        tags_str = ", ".join([f"#{tag}" for tag in tags])
-        lines.append(f"tags: {tags_str}")
+        lines.append("tags:")
+        for tag in tags:
+            lines.append(f"  - {tag}")
     
     lines.append("---")
     # lines.append("")
@@ -451,6 +452,7 @@ def extract_clean_content(content):
     """Extract clean content after metadata section (after --- separator)"""
     try:
         # Split by --- to separate metadata from actual content
+        print(f"[DEBUG] Extracting clean content. Original content: {content[:300]}...")  # Log first 100 chars
         if '---' in content:
             parts = content.split('---')
             # Get text after the --- separator and strip whitespace
