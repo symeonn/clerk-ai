@@ -6,6 +6,7 @@ from importlib import metadata
 import os
 import json
 import time
+import re
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -29,6 +30,17 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def quote_date_time_fields(frontmatter_text: str) -> str:
+    """Ensure date and time fields in frontmatter are quoted to prevent YAML sexagesimal parsing"""
+    # Quote unquoted date fields (YYYY-MM-DD format)
+    frontmatter_text = re.sub(r'^(date:\s+)(\d{4}-\d{2}-\d{2})(?![\w"])', r'\1"\2"', frontmatter_text, flags=re.MULTILINE)
+    
+    # Quote unquoted time fields (HH:MM:SS format)
+    frontmatter_text = re.sub(r'^(time:\s+)(\d{2}:\d{2}:\d{2})(?![\w"])', r'\1"\2"', frontmatter_text, flags=re.MULTILINE)
+    
+    return frontmatter_text
 
 
 class GoogleCalendarSync:
@@ -101,10 +113,6 @@ class GoogleCalendarSync:
         date_str = metadata.get('date')
 
         if not date_str:
-            # Try date as fallback
-            date_str = metadata.get('date')
-
-        if not date_str:
             return None, False
         
         # Parse date
@@ -113,6 +121,15 @@ class GoogleCalendarSync:
             time_str = metadata.get("time")
 
             if time_str and not is_all_day:
+                # Handle YAML sexagesimal conversion: if time_str is numeric, convert to HH:MM:SS
+                if isinstance(time_str, (int, float)):
+                    # YAML parsed as seconds (e.g., 11:00:00 -> 39600)
+                    total_seconds = int(time_str)
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+                    time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                
                 dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
                 return dt, False
             else:
@@ -248,7 +265,7 @@ class GoogleCalendarSync:
             post = frontmatter.Post(description, **metadata)
             
             with open(note_path, 'w', encoding='utf-8') as f:
-                f.write(frontmatter.dumps(post))
+                f.write(quote_date_time_fields(frontmatter.dumps(post)))
             
             logger.info(f"Created Obsidian note: {filename}")
             return note_path
@@ -290,7 +307,7 @@ class GoogleCalendarSync:
                 post.content = description
             
             with open(note_path, 'w', encoding='utf-8') as f:
-                f.write(frontmatter.dumps(post))
+                f.write(quote_date_time_fields(frontmatter.dumps(post)))
             
             logger.info(f"Updated Obsidian note: {note_path.name}")
         except Exception as e:
