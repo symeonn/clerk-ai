@@ -113,7 +113,7 @@ When enabled, the ingestion service automatically replies to each ingested Slack
 Example reply:
 ```
 ✅ Message recorded in the inbox
-obsidian://open?vault=clerk-ai-v2&file=00_inbox/20260227T103000_slack_1234567890_123456.md
+obsidian://open?vault=Obsidian&file=00_inbox/20260227T103000_slack_1234567890_123456.md
 ```
 
 This allows you to quickly open the ingested note in Obsidian on your Android phone by clicking the link in Slack.

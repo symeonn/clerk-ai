@@ -100,7 +100,7 @@ class GoogleCalendarSync:
     def _get_obsidian_url(self, note_path: str) -> str:
         """Generate Obsidian URL for a note"""
         relative_path = note_path.replace('\\', '/')
-        return f"obsidian://open?vault={self.vault_name}&file={relative_path}"
+        return f"obsidian://open?vault=Obsidian&file={relative_path}"
     
     def _parse_note_datetime(self, post) -> Tuple[Optional[datetime], bool]:
         """Parse datetime from note frontmatter, return (datetime, is_all_day)"""

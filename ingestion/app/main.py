@@ -121,7 +121,7 @@ def send_slack_reply(slack_connector: SlackConnector, normalized_msg: Dict[str, 
     encoded_file_path = quote(file_path)
     
     # Create Obsidian URL
-    obsidian_url = f"obsidian://open?vault={encoded_vault}&file={encoded_file_path}"
+    obsidian_url = f"obsidian://open?vault=Obsidian&file={encoded_file_path}"
     
     # Create reply message
     reply_text = f"✅ Message recorded in the inbox\n{obsidian_url}"
